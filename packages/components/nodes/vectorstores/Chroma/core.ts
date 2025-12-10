@@ -99,13 +99,25 @@ export class Chroma extends VectorStore {
      * collection does not exist, it is created.
      * @returns A promise that resolves with the `Collection` instance.
      */
-    async ensureCollection(): Promise<Collection> {
+   async ensureCollection(): Promise<Collection> {
         if (!this.collection) {
             if (!this.index) {
-                this.index = new (await Chroma.imports()).ChromaClient({
-                    path: this.url,
+                const parsedUrl = new URL(this.url)
+                const clientConfig: ChromaClientArgs = {
                     ...(this.clientParams ?? {})
-                })
+                }
+
+                if (parsedUrl.hostname) {
+                    clientConfig.host = parsedUrl.hostname
+                }
+
+                if (parsedUrl.port) {
+                    clientConfig.port = parseInt(parsedUrl.port, 10)
+                }
+
+                clientConfig.ssl = parsedUrl.protocol === 'https:'
+
+                this.index = new (await Chroma.imports()).ChromaClient(clientConfig)
             }
             try {
                 this.collection = await this.index.getOrCreateCollection({
@@ -120,7 +132,6 @@ export class Chroma extends VectorStore {
 
         return this.collection
     }
-
     /**
      * Adds vectors to the Chroma database. The vectors are associated with
      * the provided documents.
